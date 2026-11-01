@@ -3,157 +3,451 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JSON to Excel Converter</title>
+    <title>Konverter JSON ke Excel</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS CDN untuk export Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        .custom-shadow { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+        /* Scrollbar kustom agar tampilan tabel rapi */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen font-sans text-slate-900">
+<body class="bg-slate-100 min-h-screen font-sans text-slate-800 antialiased flex flex-col">
 
-    <div class="max-w-4xl mx-auto py-12 px-4">
-        <header class="text-center mb-10">
-            <h1 class="text-3xl font-bold text-blue-700 mb-2">Konverter JSON ke Excel</h1>
-            <p class="text-slate-600">Tempelkan data JSON Anda dan unduh sebagai file Excel secara instan.</p>
-        </header>
+    <!-- Header Navigasi -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">JSON to Excel Converter</h1>
+                    <p class="text-xs text-slate-500">Pratinjau data tabel sebelum mengunduh file spreadsheet</p>
+                </div>
+            </div>
 
-        <div class="bg-white rounded-2xl p-6 custom-shadow border border-slate-200">
-            <div class="mb-6">
-                <label for="jsonInput" class="block text-sm font-semibold text-slate-700 mb-2">Input JSON:</label>
+            <!-- Tombol Contoh Data Cepat -->
+            <button 
+                type="button" 
+                onclick="loadSampleData()" 
+                class="text-xs sm:text-sm font-medium px-3.5 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-colors flex items-center gap-1.5"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Muat Contoh Data
+            </button>
+        </div>
+    </header>
+
+    <!-- Konten Utama: 2 Kolom (Sidebar Kiri & Pratinjau Kanan) -->
+    <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- SIDEBAR KIRI: Editor JSON & Tombol Kontrol (5 Kolom di Layar Lebar) -->
+        <section class="lg:col-span-5 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+                <label for="jsonInput" class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                    <span>Input JSON</span>
+                    <span id="charCounter" class="text-xs font-normal text-slate-400">0 karakter</span>
+                </label>
+                <div class="flex gap-2">
+                    <button 
+                        type="button" 
+                        onclick="formatJSON()" 
+                        title="Rapikan format indentasi JSON"
+                        class="text-xs px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition"
+                    >
+                        Rapikan
+                    </button>
+                    <button 
+                        type="button" 
+                        onclick="clearInput()" 
+                        title="Kosongkan teks"
+                        class="text-xs px-2.5 py-1 rounded bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 font-medium transition"
+                    >
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Textarea JSON -->
+            <div class="relative">
                 <textarea 
                     id="jsonInput" 
-                    class="w-full h-64 p-4 font-mono text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                    placeholder='[{"nama": "Budi", "usia": 25}, {"nama": "Santi", "usia": 22}]'
+                    oninput="updateCharCount()"
+                    class="w-full h-80 sm:h-96 p-3.5 font-mono text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition duration-150 leading-relaxed resize-y"
+                    placeholder='Tempelkan JSON di sini, contoh:
+[
+  { "id": 101, "nama": "Budi Santoso", "posisi": "Developer", "gaji": 12000000 },
+  { "id": 102, "nama": "Siti Rahma", "posisi": "UI Designer", "gaji": 11500000 }
+]'
                 ></textarea>
             </div>
 
-            <div id="errorMessage" class="hidden mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
-                JSON tidak valid. Pastikan formatnya benar (array of objects).
-            </div>
+            <!-- Pesan Notifikasi (Error / Sukses) -->
+            <div id="feedbackMessage" class="hidden text-xs sm:text-sm p-3 rounded-xl border"></div>
 
-            <div class="flex flex-wrap gap-4 items-center justify-between">
-                <div class="flex gap-4">
-                    <button 
-                        onclick="convertToExcel()" 
-                        class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors flex items-center gap-2"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                        Unduh Excel (.xlsx)
-                    </button>
-                    <button 
-                        onclick="clearInput()" 
-                        class="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors"
-                    >
-                        Bersihkan
-                    </button>
+            <!-- Baris Tombol Aksi -->
+            <div class="flex flex-col gap-2.5 pt-1">
+                <!-- Tombol Preview (Utama) -->
+                <button 
+                    type="button" 
+                    onclick="previewTableAction()" 
+                    class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl transition shadow-md shadow-blue-600/20 flex items-center justify-center gap-2"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    Pratinjau Tabel
+                </button>
+
+                <!-- Tombol Unduh Excel -->
+                <button 
+                    type="button" 
+                    id="btnDownload" 
+                    onclick="downloadExcelAction()" 
+                    class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold rounded-xl transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Unduh Excel (.xlsx)
+                </button>
+            </div>
+        </section>
+
+        <!-- KANAN: Tabel Hasil Preview (7 Kolom di Layar Lebar) -->
+        <section class="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col min-h-[500px]">
+            <!-- Header Tabel & Info Statistik -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-base font-bold text-slate-800">Pratinjau Data Tabel</h2>
+                    <span id="dataBadge" class="hidden text-xs bg-blue-50 text-blue-700 font-semibold px-2.5 py-0.5 rounded-full border border-blue-200">
+                        0 Baris
+                    </span>
                 </div>
-                <span id="statusText" class="text-sm text-slate-500"></span>
-            </div>
-        </div>
 
-        <div id="previewSection" class="mt-10 hidden">
-            <h2 class="text-xl font-bold mb-4 text-slate-800">Pratinjau Data</h2>
-            <div class="overflow-x-auto bg-white rounded-xl border border-slate-200 custom-shadow">
-                <table id="previewTable" class="w-full text-left text-sm border-collapse">
-                    <!-- Table content generated via JS -->
+                <!-- Input Pencarian Cepat di Tabel -->
+                <div id="searchContainer" class="hidden w-full sm:w-auto">
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            id="tableSearch" 
+                            oninput="filterTableRows()" 
+                            placeholder="Cari dalam tabel..." 
+                            class="text-xs bg-slate-50 border border-slate-300 rounded-lg pl-8 pr-3 py-1.5 outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white w-full sm:w-48 transition"
+                        />
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tampilan Kosong (Sebelum Data di-Preview) -->
+            <div id="emptyState" class="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
+                <div class="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-300 mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 4h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                </div>
+                <h3 class="text-sm font-semibold text-slate-600 mb-1">Tabel Masih Kosong</h3>
+                <p class="text-xs max-w-sm text-slate-500">
+                    Masukkan data JSON Anda di kolom sebelah kiri, lalu klik tombol <span class="font-semibold text-blue-600">"Pratinjau Tabel"</span> untuk memvalidasi dan melihat hasilnya di sini.
+                </p>
+            </div>
+
+            <!-- Container Tabel dengan Overflow Scroll -->
+            <div id="tableWrapper" class="hidden flex-1 overflow-auto max-h-[520px] rounded-xl border border-slate-200 mt-4">
+                <table id="previewTable" class="w-full text-left text-xs sm:text-sm border-collapse">
+                    <!-- Head & Body dibuat dinamis oleh JavaScript -->
                 </table>
             </div>
-        </div>
-    </div>
 
+            <!-- Footer Status / Keterangan Baris -->
+            <div id="tableFooter" class="hidden pt-3 text-xs text-slate-500 flex justify-between items-center border-t border-slate-100 mt-3">
+                <span id="renderedRowsText">Menampilkan data</span>
+                <span class="text-slate-400">Scroll horizontal/vertikal jika data melebihi lebar layar</span>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Skrip Aplikasi -->
     <script>
-        function showMessage(msg, isError = true) {
-            const errDiv = document.getElementById('errorMessage');
-            errDiv.textContent = msg;
-            errDiv.className = isError ? 
-                "mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm block" : 
-                "mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm block";
-            
+        // State data global yang telah divalidasi
+        let cachedData = null;
+
+        // Tampilkan pesan notifikasi tanpa alert()
+        function showNotification(msg, isError = true) {
+            const fb = document.getElementById('feedbackMessage');
+            fb.textContent = msg;
+            fb.className = isError 
+                ? "text-xs sm:text-sm p-3 rounded-xl border bg-red-50 border-red-200 text-red-700 block animate-fade-in" 
+                : "text-xs sm:text-sm p-3 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-800 block animate-fade-in";
+
             if (!isError) {
-                setTimeout(() => { errDiv.classList.add('hidden'); }, 3000);
+                setTimeout(() => {
+                    fb.classList.add('hidden');
+                }, 4000);
             }
         }
 
-        function clearInput() {
-            document.getElementById('jsonInput').value = '';
-            document.getElementById('errorMessage').classList.add('hidden');
-            document.getElementById('previewSection').classList.add('hidden');
-            document.getElementById('statusText').textContent = '';
+        // Hitung jumlah karakter teks JSON
+        function updateCharCount() {
+            const count = document.getElementById('jsonInput').value.length;
+            document.getElementById('charCounter').textContent = `${count.toLocaleString()} karakter`;
         }
 
-        function convertToExcel() {
+        // Muat contoh data siap pakai
+        function loadSampleData() {
+            const sample = [
+                { "id": "EMP-001", "nama": "Budi Santoso", "departemen": "Teknologi", "posisi": "Senior Engineer", "gaji": 15000000, "status": "Aktif" },
+                { "id": "EMP-002", "nama": "Siti Rahma", "departemen": "Desain", "posisi": "UI/UX Designer", "gaji": 12500000, "status": "Aktif" },
+                { "id": "EMP-003", "nama": "Andi Wijaya", "departemen": "Pemasaran", "posisi": "Digital Strategist", "gaji": 11000000, "status": "Cuti" },
+                { "id": "EMP-004", "nama": "Dewi Lestari", "departemen": "Keuangan", "posisi": "Finance Analyst", "gaji": 13000000, "status": "Aktif" },
+                { "id": "EMP-005", "nama": "Rian Ardiansyah", "departemen": "Operasional", "posisi": "Operations Lead", "gaji": 14000000, "status": "Aktif" }
+            ];
+            document.getElementById('jsonInput').value = JSON.stringify(sample, null, 2);
+            updateCharCount();
+            // Otomatis pratinjau contoh data
+            previewTableAction();
+        }
+
+        // Format / Indentasi JSON otomatis
+        function formatJSON() {
             const input = document.getElementById('jsonInput').value.trim();
-            const statusText = document.getElementById('statusText');
-            
             if (!input) {
-                showMessage("Mohon masukkan data JSON terlebih dahulu.");
+                showNotification("Kolom JSON masih kosong.");
                 return;
+            }
+            try {
+                const parsed = JSON.parse(input);
+                document.getElementById('jsonInput').value = JSON.stringify(parsed, null, 2);
+                updateCharCount();
+                showNotification("Format JSON berhasil dirapikan!", false);
+            } catch (err) {
+                showNotification("Gagal merapikan: Format JSON tidak valid (" + err.message + ")");
+            }
+        }
+
+        // Bersihkan semua input dan pratinjau
+        function clearInput() {
+            document.getElementById('jsonInput').value = '';
+            document.getElementById('feedbackMessage').classList.add('hidden');
+            document.getElementById('tableWrapper').classList.add('hidden');
+            document.getElementById('emptyState').classList.remove('hidden');
+            document.getElementById('dataBadge').classList.add('hidden');
+            document.getElementById('searchContainer').classList.add('hidden');
+            document.getElementById('tableFooter').classList.add('hidden');
+            document.getElementById('tableSearch').value = '';
+            updateCharCount();
+            cachedData = null;
+        }
+
+        // Parsing JSON secara aman dan menjaga struktur array
+        function parseJsonInput() {
+            const raw = document.getElementById('jsonInput').value.trim();
+            if (!raw) {
+                showNotification("Mohon masukkan atau tempelkan data JSON terlebih dahulu.");
+                return null;
             }
 
             try {
-                const data = JSON.parse(input);
-                
-                // Pastikan data adalah array
-                const dataArray = Array.isArray(data) ? data : [data];
+                const parsed = JSON.parse(raw);
+                // Pertahankan logika awal: jika bukan array, bungkus dalam array
+                const dataArray = Array.isArray(parsed) ? parsed : [parsed];
 
-                // Proses dengan XLSX
-                const worksheet = XLSX.utils.json_to_sheet(dataArray);
-                const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
+                if (dataArray.length === 0) {
+                    showNotification("Data JSON kosong (array 0 item).");
+                    return null;
+                }
 
-                // Download file
-                XLSX.writeFile(workbook, "konversi_data.xlsx");
-                
-                showMessage("Berhasil mengonversi! File sedang diunduh.", false);
-                generatePreview(dataArray);
+                // Cek apakah item di dalamnya berbentuk objek
+                const isObjectValid = dataArray.some(item => typeof item === 'object' && item !== null);
+                if (!isObjectValid) {
+                    showNotification("Data JSON harus berisi objek atau array dari objek.");
+                    return null;
+                }
 
-            } catch (e) {
-                console.error(e);
-                showMessage("Gagal mengonversi. Pastikan format JSON Anda valid.");
+                return dataArray;
+            } catch (err) {
+                showNotification("JSON tidak valid: " + err.message);
+                return null;
             }
         }
 
-        function generatePreview(data) {
-            const previewSection = document.getElementById('previewSection');
-            const table = document.getElementById('previewTable');
-            
-            if (data.length === 0) return;
+        // Tombol Aksi: Preview Tabel
+        function previewTableAction() {
+            const data = parseJsonInput();
+            if (!data) return;
 
-            previewSection.classList.remove('hidden');
+            cachedData = data;
+            renderTable(data);
+            showNotification(`Berhasil menampilkan pratinjau ${data.length} baris data.`, false);
+        }
+
+        // Render tabel HTML dari data array (disempurnakan dengan deteksi semua kolom unik)
+        function renderTable(data) {
+            const emptyState = document.getElementById('emptyState');
+            const tableWrapper = document.getElementById('tableWrapper');
+            const table = document.getElementById('previewTable');
+            const dataBadge = document.getElementById('dataBadge');
+            const searchContainer = document.getElementById('searchContainer');
+            const tableFooter = document.getElementById('tableFooter');
+            const renderedRowsText = document.getElementById('renderedRowsText');
+
+            // Ekstrak semua nama kolom unik secara menyeluruh dari seluruh baris
+            const headerSet = new Set();
+            data.forEach(row => {
+                if (row && typeof row === 'object') {
+                    Object.keys(row).forEach(k => headerSet.add(k));
+                }
+            });
+            const headers = Array.from(headerSet);
+
+            // Bersihkan tabel sebelum render baru
             table.innerHTML = '';
 
-            // Headers
-            const headers = Object.keys(data[0]);
+            // 1. Render Table Header (Sticky)
             const thead = document.createElement('thead');
-            const headerRow = document.createElement('tr');
-            headerRow.className = "bg-slate-100 border-bottom border-slate-200";
-            
+            thead.className = "bg-slate-100/95 sticky top-0 border-b border-slate-200 z-10 backdrop-blur-sm";
+            const trHead = document.createElement('tr');
+
+            // Kolom penomoran indeks
+            const thNo = document.createElement('th');
+            thNo.className = "px-3.5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-center w-12";
+            thNo.textContent = "#";
+            trHead.appendChild(thNo);
+
             headers.forEach(h => {
                 const th = document.createElement('th');
-                th.className = "px-4 py-3 font-semibold text-slate-700";
+                th.className = "px-4 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap";
                 th.textContent = h;
-                headerRow.appendChild(th);
+                trHead.appendChild(th);
             });
-            thead.appendChild(headerRow);
+            thead.appendChild(trHead);
             table.appendChild(thead);
 
-            // Body (Limit to 10 rows for preview)
+            // 2. Render Table Body
             const tbody = document.createElement('tbody');
-            data.slice(0, 10).forEach((row, i) => {
+            tbody.id = 'tableBody';
+            tbody.className = "divide-y divide-slate-100 bg-white font-mono text-xs";
+
+            data.forEach((row, index) => {
                 const tr = document.createElement('tr');
-                tr.className = i % 2 === 0 ? "bg-white" : "bg-slate-50";
-                tr.className += " border-b border-slate-100";
-                
+                tr.className = index % 2 === 0 ? "hover:bg-blue-50/40 transition-colors" : "bg-slate-50/60 hover:bg-blue-50/40 transition-colors";
+
+                // Cell Index
+                const tdNo = document.createElement('td');
+                tdNo.className = "px-3.5 py-2.5 text-center text-slate-400 font-sans select-none";
+                tdNo.textContent = index + 1;
+                tr.appendChild(tdNo);
+
+                // Cells Data
                 headers.forEach(h => {
                     const td = document.createElement('td');
-                    td.className = "px-4 py-3 text-slate-600";
-                    td.textContent = typeof row[h] === 'object' ? JSON.stringify(row[h]) : row[h];
+                    td.className = "px-4 py-2.5 text-slate-700 whitespace-nowrap max-w-xs truncate";
+                    
+                    const cellVal = row ? row[h] : undefined;
+                    
+                    if (cellVal === undefined || cellVal === null) {
+                        td.innerHTML = '<span class="text-slate-300 italic font-sans">null</span>';
+                    } else if (typeof cellVal === 'object') {
+                        td.textContent = JSON.stringify(cellVal);
+                        td.title = JSON.stringify(cellVal, null, 2);
+                    } else {
+                        td.textContent = cellVal;
+                        td.title = cellVal;
+                    }
+
                     tr.appendChild(td);
                 });
+
                 tbody.appendChild(tr);
             });
+
             table.appendChild(tbody);
+
+            // Tampilkan komponen preview dan update status
+            emptyState.classList.add('hidden');
+            tableWrapper.classList.remove('hidden');
+            searchContainer.classList.remove('hidden');
+            tableFooter.classList.remove('hidden');
+
+            dataBadge.textContent = `${data.length} Baris, ${headers.length} Kolom`;
+            dataBadge.classList.remove('hidden');
+            renderedRowsText.textContent = `Menampilkan ${data.length} baris data`;
+        }
+
+        // Fitur Filter / Pencarian real-time pada tabel
+        function filterTableRows() {
+            const query = document.getElementById('tableSearch').value.toLowerCase();
+            const tbody = document.getElementById('tableBody');
+            if (!tbody) return;
+
+            const rows = tbody.getElementsByTagName('tr');
+            let visibleCount = 0;
+
+            for (let i = 0; i < rows.length; i++) {
+                const text = rows[i].textContent.toLowerCase();
+                if (text.includes(query)) {
+                    rows[i].style.display = '';
+                    visibleCount++;
+                } else {
+                    rows[i].style.display = 'none';
+                }
+            }
+
+            document.getElementById('renderedRowsText').textContent = 
+                query ? `Ditemukan ${visibleCount} dari ${rows.length} baris` : `Menampilkan ${rows.length} baris data`;
+        }
+
+        // Tombol Aksi: Unduh Excel (.xlsx)
+        function downloadExcelAction() {
+            // Jika belum dipratinjau, coba ambil dan parse data terbaru dari input
+            const data = cachedData || parseJsonInput();
+            if (!data) return;
+
+            try {
+                // Konversi data array ke worksheet Excel sesuai pustaka XLSX
+                const worksheet = XLSX.utils.json_to_sheet(data);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, "Data_JSON");
+
+                // Download file
+                const timestamp = new Date().toISOString().slice(0, 10);
+                XLSX.writeFile(workbook, `konversi_data_${timestamp}.xlsx`);
+
+                showNotification("Berhasil! File Excel sedang diunduh.", false);
+
+                // Jika belum sempat tampil preview, tampilkan otomatis juga
+                if (document.getElementById('tableWrapper').classList.contains('hidden')) {
+                    cachedData = data;
+                    renderTable(data);
+                }
+            } catch (err) {
+                console.error(err);
+                showNotification("Gagal membuat file Excel: " + err.message);
+            }
         }
     </script>
 </body>
